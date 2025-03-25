@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Middleware to get logged-in user
+// Middleware untuk mendapatkan user yang login
 async function getUser(req: NextRequest) {
   const accessToken = req.headers.get("Authorization")?.replace("Bearer ", "");
   const cookieToken = req.cookies.get("sb-access-token")?.value;
@@ -21,8 +21,8 @@ async function getUser(req: NextRequest) {
   return data.user;
 }
 
-
-export async function getAllReports(req: NextRequest) {
+// Ubah ekspor ke GET
+export async function GET(req: NextRequest) {
     try {
       const user = await getUser(req);
       if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,4 +39,4 @@ export async function getAllReports(req: NextRequest) {
     } catch (err) {
       return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 });
     }
-  }
+}
