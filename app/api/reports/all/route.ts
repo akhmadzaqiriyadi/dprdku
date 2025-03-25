@@ -21,6 +21,7 @@ async function getUser(req: NextRequest) {
   return data.user;
 }
 
+// IMPORTANT: Use GET instead of getAllReports
 export async function GET(req: NextRequest) {
   try {
     const user = await getUser(req);
