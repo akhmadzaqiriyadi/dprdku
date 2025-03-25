@@ -21,25 +21,22 @@ async function getUser(req: NextRequest) {
   return data.user;
 }
 
-// IMPORTANT: Use GET instead of getAllReports
-export async function GET(req: NextRequest) {
-  try {
-    const user = await getUser(req);
-    
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+export async function getAllReports(req: NextRequest) {
+    try {
+      const user = await getUser(req);
+      if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  
+      // Ambil semua laporan dengan informasi profil pembuat
+      const { data: reports, error } = await supabase
+        .from("reports")
+        .select("*, profiles(username, full_name, dapil)")
+        .order("created_at", { ascending: false });
+  
+      if (error) throw error;
+  
+      return NextResponse.json(reports);
+    } catch (err) {
+      return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 });
     }
-
-    // Fetch all reports with profile information
-    const { data: reports, error } = await supabase
-      .from("reports")
-      .select("*, profiles(username, full_name, dapil)")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    return NextResponse.json(reports);
-  } catch (err) {
-    return NextResponse.json({ error: "An error occurred" }, { status: 500 });
   }
-}

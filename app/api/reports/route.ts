@@ -95,23 +95,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 });
   }
 }
-
-// New method to get all reports
-export async function getAllReports(req: NextRequest) {
-  try {
-    const user = await getUser(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    // Ambil semua laporan dengan informasi profil pembuat
-    const { data: reports, error } = await supabase
-      .from("reports")
-      .select("*, profiles(username, full_name, dapil)")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    return NextResponse.json(reports);
-  } catch (err) {
-    return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 });
-  }
-}
