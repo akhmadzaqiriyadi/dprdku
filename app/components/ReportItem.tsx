@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { FaHeart, FaRegHeart, FaComment } from "react-icons/fa";
+import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import CommentSection from "./CommentSection";
 
 interface ReportProps {
@@ -76,10 +81,6 @@ export default function ReportItem({
     }
   };
 
-  const toggleComments = () => {
-    setShowComments(!showComments);
-  };
-
   // Function to translate status
   const translateStatus = (status: string) => {
     switch (status) {
@@ -96,90 +97,104 @@ export default function ReportItem({
     }
   };
 
-  // Function to get status color
-  const getStatusColor = (status: string) => {
+  // Function to get status variant
+  const getStatusVariant = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'warning';
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
+        return 'info';
       case 'resolved':
-        return 'bg-green-100 text-green-800';
+        return 'success';
       case 'rejected':
-        return 'bg-red-100 text-red-800';
+        return 'destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'secondary';
     }
   };
 
   return (
-    <div className="border rounded-lg p-4 shadow-md bg-white mb-4">
-      {/* Report author info */}
-      {user && (
-        <div className="flex items-center mb-2">
-          <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 mr-2">
-            {user.username ? user.username.charAt(0).toUpperCase() : "U"}
-          </div>
-          <div className="flex-1">
-            <p className="font-medium">{user.full_name || user.username}</p>
-            <span 
-              className={`px-2 py-1 rounded-full text-xs ${getStatusColor(status)}`}
-            >
-              {translateStatus(status)}
+    <Card className="w-full mb-4">
+      <CardHeader className="flex flex-row items-center space-x-4 pb-2">
+        <Avatar>
+          <AvatarFallback>
+            {user?.username ? user.username.charAt(0).toUpperCase() : "U"}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="font-medium">{user?.full_name || user?.username}</p>
+            <span className="text-sm text-muted-foreground">
+              {new Date(created_at).toLocaleString("id-ID")}
             </span>
+            </div>
+              <Badge variant={getStatusVariant(status)}>
+                {translateStatus(status)}
+              </Badge>
           </div>
         </div>
-      )}
+      </CardHeader>
 
-      {/* Report content */}
-      {image_url && (
-        <img
-          src={image_url}
-          alt={title}
-          className="w-full h-48 object-cover rounded-md mb-2"
-        />
-      )}
+      <CardContent>
+        {image_url && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <img
+                src={image_url}
+                alt={title}
+                className="w-full aspect-video object-cover rounded-md mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+              />
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[625px]">
+              <DialogHeader>
+                <DialogTitle>{title}</DialogTitle>
+              </DialogHeader>
+              <img
+                src={image_url}
+                alt={title}
+                className="w-full max-h-[500px] object-contain"
+              />
+            </DialogContent>
+          </Dialog>
+        )}
 
-      {/* Menampilkan waktu laporan */}
-      <p className="text-sm text-gray-400 mt-1">
-        Dibuat pada {new Date(created_at).toLocaleString("id-ID")}
-      </p>
-      
-      <h3 className="text-xl font-semibold">{title}</h3>
-      <p className="text-gray-600 mb-2">{description}</p>
-      
-      <div className="text-sm text-gray-500 mb-2">
-        <span className="bg-gray-100 px-2 py-1 rounded-full">
+        <h3 className="text-xl font-semibold mb-2">{title}</h3>
+        <p className="text-muted-foreground mb-4">{description}</p>
+        
+        <Badge variant="secondary" className="mr-2">
           {category}
-        </span>
-      </div>
+        </Badge>
+      </CardContent>
 
-      {/* Report actions */}
-      <div className="mt-4 pt-3 border-t flex items-center">
-        <button 
-          onClick={handleLikeToggle}
-          className="flex items-center mr-4 text-gray-600 hover:text-gray-800"
-          disabled={loading}
-        >
-          {liked ? (
-            <FaHeart className="text-red-500 mr-1" />
-          ) : (
-            <FaRegHeart className="mr-1" />
-          )}
-          <span>{likesCount} {likesCount === 1 ? "Suka" : "Suka"}</span>
-        </button>
+      <CardFooter className="flex justify-between border-t pt-4">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant={liked ? "destructive" : "outline"}
+            size="sm"
+            onClick={handleLikeToggle}
+            disabled={loading}
+          >
+            {liked ? <FaHeart className="mr-2" /> : <FaRegHeart className="mr-2" />}
+            {likesCount} Suka
+          </Button>
 
-        <button 
-          onClick={toggleComments}
-          className="flex items-center text-gray-600 hover:text-gray-800"
-        >
-          <FaComment className="mr-1" />
-          <span>Komentar</span>
-        </button>
-      </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowComments(!showComments)}
+          >
+            <FaComment className="mr-2" />
+            Komentar
+          </Button>
+        </div>
+      </CardFooter>
 
-      {/* Comments section */}
-      {showComments && <CommentSection reportId={id} />}
-    </div>
+      {showComments && (
+        <div className="p-4 border-t">
+          <CommentSection reportId={id} />
+        </div>
+      )}
+    </Card>
   );
 }

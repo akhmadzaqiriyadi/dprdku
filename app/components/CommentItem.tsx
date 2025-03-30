@@ -1,31 +1,60 @@
-// components/CommentItem.tsx
 "use client";
 
 import { useState } from "react";
-import { FaReply } from "react-icons/fa";
+import { Reply, Send, MoreVertical } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { id } from "date-fns/locale";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-interface CommentProps {
-  comment: {
-    id: string;
-    content: string;
-    created_at: string;
-    profiles: {
-      username: string;
-      full_name: string;
-    };
-    replies?: any[];
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  parent_id?: string;
+  profiles: {
+    username: string;
+    full_name: string;
   };
-  onAddReply: (parentId: string, content: string) => Promise<boolean>;
+  replies?: Comment[];
 }
 
-export default function CommentItem({ comment, onAddReply }: CommentProps) {
+interface CommentItemProps {
+  comment: Comment;
+  onAddReply: (parentId: string, content: string) => Promise<boolean>;
+  depth?: number;
+}
+
+export default function CommentItem({ 
+  comment, 
+  onAddReply, 
+  depth = 0 
+}: CommentItemProps) {
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Format date relative to now (e.g. "5 minutes ago")
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    try {
+      const date = new Date(dateString);
+      return formatDistanceToNow(date, { 
+        addSuffix: true,
+        locale: id 
+      });
+    } catch (error) {
+      return dateString;
+    }
   };
 
   const handleReplySubmit = async (e: React.FormEvent) => {
@@ -43,73 +72,128 @@ export default function CommentItem({ comment, onAddReply }: CommentProps) {
     setSubmitting(false);
   };
 
+  // Get initials for avatar
+  const getInitials = () => {
+    if (comment.profiles.full_name) {
+      return comment.profiles.full_name
+        .split(' ')
+        .slice(0, 2)
+        .map(name => name.charAt(0).toUpperCase())
+        .join('');
+    }
+    return comment.profiles.username.charAt(0).toUpperCase();
+  };
+
+  // Limit nesting to 3 levels
+  const maxDepth = 3;
+  const canReply = depth < maxDepth;
+
   return (
-    <div className="border-l-2 border-gray-200 pl-3">
-      {/* Comment */}
-      <div className="mb-2">
-        <div className="flex items-start">
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 mr-2">
-            {comment.profiles.username ? comment.profiles.username.charAt(0).toUpperCase() : "U"}
-          </div>
-          <div className="flex-1">
-            <p className="font-medium text-sm">
-              {comment.profiles.full_name || comment.profiles.username}
-            </p>
-            <p className="text-gray-700">{comment.content}</p>
-            <div className="flex items-center text-xs text-gray-500 mt-1">
-              <span>{formatDate(comment.created_at)}</span>
-              <button 
-                onClick={() => setShowReplyInput(!showReplyInput)}
-                className="ml-3 flex items-center text-blue-500 hover:text-blue-700"
-              >
-                <FaReply className="mr-1" />
-                <span>Balas</span>
-              </button>
+    <div className={depth > 0 ? 'ml-6' : ''}>
+      <Card className="p-3 shadow-sm">
+        <div className="flex gap-3">
+          {/* Avatar */}
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-primary/10 text-primary text-xs">
+              {getInitials()}
+            </AvatarFallback>
+          </Avatar>
+          
+          {/* Comment content */}
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">
+                  {comment.profiles.full_name || comment.profiles.username}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formatDate(comment.created_at)}
+                </span>
+              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>Laporkan</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
+            
+            <p className="text-sm">{comment.content}</p>
+            
+            {/* Reply button */}
+            {canReply && (
+              <div className="pt-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        onClick={() => setShowReplyInput(!showReplyInput)}
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2 text-xs"
+                      >
+                        <Reply className="h-3 w-3 mr-1" />
+                        Balas
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Balas komentar ini</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Reply form */}
       {showReplyInput && (
-        <form onSubmit={handleReplySubmit} className="ml-10 mb-3">
-          <div className="flex">
-            <input
-              type="text"
+        <div className="mt-2 ml-6">
+          <form onSubmit={handleReplySubmit} className="flex gap-2">
+            <Input
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}
               placeholder="Tulis balasan..."
-              className="flex-1 border rounded-l p-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="flex-1 text-sm h-9"
+              disabled={submitting}
             />
-            <button
+            <Button
               type="submit"
               disabled={submitting || !replyContent.trim()}
-              className="bg-blue-500 text-white px-2 py-1 text-sm rounded-r hover:bg-blue-600 disabled:bg-blue-300"
+              size="sm"
+              className="h-9"
             >
-              Kirim
-            </button>
-          </div>
-        </form>
+              <Send className="h-3 w-3" />
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setShowReplyInput(false)}
+              variant="outline"
+              size="sm"
+              className="h-9"
+            >
+              Batal
+            </Button>
+          </form>
+        </div>
       )}
 
-      {/* Replies */}
+      {/* Nested Replies */}
       {comment.replies && comment.replies.length > 0 && (
-        <div className="ml-8 mt-2 space-y-3">
+        <div className="mt-2 space-y-2 border-l-2 border-primary/10 pl-4">
           {comment.replies.map((reply) => (
-            <div key={reply.id} className="border-l-2 border-gray-100 pl-3">
-              <div className="flex items-start">
-                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 mr-2 text-xs">
-                  {reply.profiles.username ? reply.profiles.username.charAt(0).toUpperCase() : "U"}
-                </div>
-                <div>
-                  <p className="font-medium text-sm">
-                    {reply.profiles.full_name || reply.profiles.username}
-                  </p>
-                  <p className="text-gray-700 text-sm">{reply.content}</p>
-                  <p className="text-xs text-gray-500">{formatDate(reply.created_at)}</p>
-                </div>
-              </div>
-            </div>
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              onAddReply={onAddReply}
+              depth={depth + 1}
+            />
           ))}
         </div>
       )}

@@ -1,14 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { SendIcon, RefreshCw } from "lucide-react";
 import CommentItem from "./CommentItem";
-import { FaPaperPlane } from "react-icons/fa";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Comment {
   id: string;
   content: string;
   created_at: string;
   user_id: string;
+  parent_id?: string;
   profiles: {
     username: string;
     full_name: string;
@@ -30,7 +40,7 @@ export default function CommentSection({ reportId }: CommentSectionProps) {
   // Fetch comments when component mounts
   useEffect(() => {
     fetchComments();
-  }, []);
+  }, [reportId]);
 
   const fetchComments = async () => {
     setLoading(true);
@@ -75,8 +85,8 @@ export default function CommentSection({ reportId }: CommentSectionProps) {
       
       // Add the new comment to the list
       setComments(prev => [
-        ...prev,
-        { ...data, replies: [] }
+        { ...data, replies: [] },
+        ...prev
       ]);
       
       // Clear the input
@@ -107,18 +117,31 @@ export default function CommentSection({ reportId }: CommentSectionProps) {
       
       const { data } = await response.json();
       
-      // Update comments with the new reply
-      setComments(prevComments => 
-        prevComments.map(comment => {
+      // Recursive function to add reply to the correct nested level
+      const addReplyToComment = (comments: Comment[]): Comment[] => {
+        return comments.map(comment => {
           if (comment.id === parentId) {
+            // If this is the direct parent, add the reply
             return {
               ...comment,
               replies: [...(comment.replies || []), data]
             };
           }
+          
+          // If this comment has replies, recursively search through them
+          if (comment.replies && comment.replies.length > 0) {
+            return {
+              ...comment,
+              replies: addReplyToComment(comment.replies)
+            };
+          }
+          
           return comment;
-        })
-      );
+        });
+      };
+
+      // Update the entire comments structure
+      setComments(addReplyToComment(comments));
       
       return true;
     } catch (error) {
@@ -127,45 +150,103 @@ export default function CommentSection({ reportId }: CommentSectionProps) {
     }
   };
 
+  const renderCommentSkeleton = () => (
+    <div className="space-y-4">
+      {[1, 2, 3].map((_, index) => (
+        <div key={index} className="flex gap-3">
+          <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+          <div className="space-y-2 w-full">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="mt-4 pt-2">
-      {/* Comment input */}
-      <form onSubmit={handleSubmitComment} className="mb-4">
-        <div className="flex">
-          <input
-            type="text"
+    <Card className="w-full">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-lg font-medium">
+            Diskusi
+            {comments.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {comments.length}
+              </Badge>
+            )}
+          </CardTitle>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={fetchComments}
+                  disabled={loading}
+                >
+                  <RefreshCw 
+                    className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Muat ulang komentar</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </CardHeader>
+      <Separator />
+      <CardContent className="pt-4">
+        {/* Comment input */}
+        <form onSubmit={handleSubmitComment} className="mb-6 flex gap-2">
+          <Input
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Tambahkan komentar..."
-            className="flex-1 border rounded-l-lg p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1"
           />
-          <button
-            type="submit"
+          <Button 
+            type="submit" 
             disabled={submitting || !newComment.trim()}
-            className="bg-blue-500 text-white px-4 rounded-r-lg hover:bg-blue-600 disabled:bg-blue-300"
+            size="icon"
+            variant="default"
           >
-            <FaPaperPlane />
-          </button>
-        </div>
-        {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-      </form>
+            <SendIcon className="h-4 w-4" />
+          </Button>
+        </form>
 
-      {/* Comments list */}
-      <div className="space-y-3">
-        {loading ? (
-          <p className="text-center text-gray-500">Memuat komentar...</p>
-        ) : comments.length === 0 ? (
-          <p className="text-center text-gray-500">Belum ada komentar.</p>
-        ) : (
-          comments.map((comment) => (
-            <CommentItem 
-              key={comment.id} 
-              comment={comment} 
-              onAddReply={handleAddReply}
-            />
-          ))
+        {/* Error handling */}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <ExclamationTriangleIcon className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
-      </div>
-    </div>
+
+        {/* Comments list */}
+        <div className="space-y-4">
+          {loading ? (
+            renderCommentSkeleton()
+          ) : comments.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-muted-foreground">
+                Belum ada komentar. Jadilah yang pertama mengomentari.
+              </p>
+            </div>
+          ) : (
+            comments.map((comment) => (
+              <CommentItem 
+                key={comment.id} 
+                comment={comment} 
+                onAddReply={handleAddReply}
+              />
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
