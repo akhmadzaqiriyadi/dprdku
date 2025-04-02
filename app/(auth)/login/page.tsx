@@ -52,9 +52,11 @@ export default function LoginPage() {
     }
 
     const role = profile.role;
+    const username = profile.username || ""; 
 
     // 3️⃣ Simpan token dan role di cookie
     Cookies.set("sb-access-token", data.session?.access_token || "", { path: "/" });
+    Cookies.set("username", username, { path: "/" });
     Cookies.set("role", role, { path: "/" });
 
     // 4️⃣ Redirect berdasarkan role

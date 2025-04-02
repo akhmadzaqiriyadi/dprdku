@@ -1,6 +1,18 @@
 "use client";
+
 import { useState, useEffect } from 'react';
 import ReportItem from '../components/ReportItem';
+import Navbar from '../components/Navbar';
+import Cookies from 'js-cookie';
+import { useRouter } from 'next/navigation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 // Define the type for a report
 type Report = {
@@ -20,11 +32,33 @@ type Report = {
 export default function DashboardReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [filter, setFilter] = useState({
-    category: '',
-    status: ''
+    category: 'all',
+    status: 'all'
   });
+  const router = useRouter();
 
+  // Check user from cookies
+  useEffect(() => {
+    const checkUser = async () => {
+      const token = Cookies.get("sb-access-token");
+      const role = Cookies.get("role");
+
+      if (token) {
+        setUser({ token });
+        setUserRole(role || null);
+      } else {
+        setUser(null);
+        setUserRole(null);
+      }
+    };
+
+    checkUser();
+  }, []);
+
+  // Fetch reports
   useEffect(() => {
     const fetchReports = async () => {
       try {
@@ -46,6 +80,15 @@ export default function DashboardReportsPage() {
 
     fetchReports();
   }, []);
+
+  // Handle logout
+  const handleLogout = async () => {
+    Cookies.remove("sb-access-token");
+    Cookies.remove("role");
+    setUser(null);
+    setUserRole(null);
+    router.push("/login");
+  };
 
   // Get unique categories and statuses for filtering
   const categories = [...new Set(reports.map(r => r.category))];
@@ -69,8 +112,8 @@ export default function DashboardReportsPage() {
 
   // Filter reports based on selected filters
   const filteredReports = reports.filter(report => 
-    (!filter.category || report.category === filter.category) &&
-    (!filter.status || report.status === filter.status)
+    (filter.category === 'all' || report.category === filter.category) &&
+    (filter.status === 'all' || report.status === filter.status)
   );
 
   if (isLoading) {
@@ -82,49 +125,92 @@ export default function DashboardReportsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Laporan</h1>
+    <div className="min-h-screen flex flex-col">
+      <Navbar user={user} userRole={userRole} onLogout={handleLogout} />
+      <main className="container mx-auto px-4 py-8 flex-grow">
+        <h1 className="text-2xl font-bold mb-6">Laporan</h1>
 
-      {/* Filters */}
-      <div className="mb-6 flex space-x-4">
-        <select 
-          value={filter.category}
-          onChange={(e) => setFilter(prev => ({ ...prev, category: e.target.value }))}
-          className="px-3 py-2 border rounded"
-        >
-          <option value="">Semua Kategori</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
+        {/* Enhanced Filters */}
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
+          <div className="space-y-2">
+            <Label htmlFor="category-filter" className="text-sm font-medium">
+              Kategori
+            </Label>
+            <Select
+              value={filter.category}
+              onValueChange={(value) => setFilter(prev => ({ ...prev, category: value }))}
+            >
+              <SelectTrigger 
+                id="category-filter"
+                className="w-full bg-background border border-input hover:border-primary/50 transition-colors"
+              >
+                <SelectValue placeholder="Semua Kategori" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-input">
+                <SelectItem value="all" className="hover:bg-accent">
+                  Semua Kategori
+                </SelectItem>
+                {categories.map(cat => (
+                  <SelectItem 
+                    key={cat} 
+                    value={cat}
+                    className="hover:bg-accent transition-colors"
+                  >
+                    {cat.toUpperCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <select 
-          value={filter.status}
-          onChange={(e) => setFilter(prev => ({ ...prev, status: e.target.value }))}
-          className="px-3 py-2 border rounded"
-        >
-          <option value="">Semua Status</option>
-          {statuses.map(status => (
-            <option key={status} value={status}>{translateStatus(status)}</option>
-          ))}
-        </select>
-      </div>
-
-      {filteredReports.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-600">Tidak ada laporan yang sesuai</p>
+          <div className="space-y-2">
+            <Label htmlFor="status-filter" className="text-sm font-medium">
+              Status
+            </Label>
+            <Select
+              value={filter.status}
+              onValueChange={(value) => setFilter(prev => ({ ...prev, status: value }))}
+            >
+              <SelectTrigger 
+                id="status-filter"
+                className="w-full bg-background border border-input hover:border-primary/50 transition-colors"
+              >
+                <SelectValue placeholder="Semua Status" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-input">
+                <SelectItem value="all" className="hover:bg-accent">
+                  Semua Status
+                </SelectItem>
+                {statuses.map(status => (
+                  <SelectItem 
+                    key={status} 
+                    value={status}
+                    className="hover:bg-accent transition-colors"
+                  >
+                    {translateStatus(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredReports.map((report) => (
-            <ReportItem 
-              key={report.id}
-              {...report}
-              user={report.profiles}
-            />
-          ))}
-        </div>
-      )}
+
+        {filteredReports.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">Tidak ada laporan yang sesuai</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredReports.map((report) => (
+              <ReportItem 
+                key={report.id}
+                {...report}
+                user={report.profiles}
+              />
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

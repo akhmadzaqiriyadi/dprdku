@@ -1,3 +1,5 @@
+// app/api/likes/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -81,14 +83,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Get likes count for a report
+// Get likes count for a report (public access)
 export async function GET(req: NextRequest) {
   try {
-    const user = await getUser(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const url = new URL(req.url);
     const reportId = url.searchParams.get("report_id");
 
@@ -107,22 +104,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to get likes count" }, { status: 500 });
     }
 
-    // Check if user liked this report
-    const { data: userLike, error: likeError } = await supabase
-      .from("likes")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("report_id", reportId)
-      .maybeSingle();
+    // Check if the user is authenticated to determine if they liked it
+    const user = await getUser(req);
+    let userLiked = false;
 
-    if (likeError) {
-      console.error("Error checking user like:", likeError);
-      return NextResponse.json({ error: "Failed to check like status" }, { status: 500 });
+    if (user) {
+      const { data: userLike, error: likeError } = await supabase
+        .from("likes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("report_id", reportId)
+        .maybeSingle();
+
+      if (likeError) {
+        console.error("Error checking user like:", likeError);
+        return NextResponse.json({ error: "Failed to check like status" }, { status: 500 });
+      }
+      userLiked = !!userLike;
     }
 
     return NextResponse.json({
       count: count || 0,
-      userLiked: !!userLike
+      userLiked: userLiked // Will be false for unauthenticated users
     });
   } catch (err) {
     console.error("Server error:", err);

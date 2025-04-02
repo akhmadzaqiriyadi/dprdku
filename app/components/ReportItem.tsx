@@ -1,3 +1,4 @@
+// app/components/ReportItem.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import CommentSection from "./CommentSection";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface ReportProps {
   id: string;
@@ -37,10 +45,17 @@ export default function ReportItem({
   const [likesCount, setLikesCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
 
-  // Fetch likes data when component mounts
+  // Check authentication status and fetch likes data
   useEffect(() => {
-    fetchLikesData();
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data?.session);
+      fetchLikesData();
+    };
+    checkUser();
   }, []);
 
   const fetchLikesData = async () => {
@@ -57,6 +72,11 @@ export default function ReportItem({
   };
 
   const handleLikeToggle = async () => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+    
     if (loading) return;
     
     setLoading(true);
@@ -81,35 +101,23 @@ export default function ReportItem({
     }
   };
 
-  // Function to translate status
   const translateStatus = (status: string) => {
     switch (status) {
-      case 'pending':
-        return 'Menunggu';
-      case 'in_progress':
-        return 'Sedang Diproses';
-      case 'resolved':
-        return 'Selesai';
-      case 'rejected':
-        return 'Ditolak';
-      default:
-        return status;
+      case 'pending': return 'Menunggu';
+      case 'in_progress': return 'Sedang Diproses';
+      case 'resolved': return 'Selesai';
+      case 'rejected': return 'Ditolak';
+      default: return status;
     }
   };
 
-  // Function to get status variant
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'pending':
-        return 'warning';
-      case 'in_progress':
-        return 'info';
-      case 'resolved':
-        return 'success';
-      case 'rejected':
-        return 'destructive';
-      default:
-        return 'secondary';
+      case 'pending': return 'warning';
+      case 'in_progress': return 'info';
+      case 'resolved': return 'success';
+      case 'rejected': return 'destructive';
+      default: return 'secondary';
     }
   };
 
@@ -125,13 +133,13 @@ export default function ReportItem({
           <div className="flex items-start justify-between">
             <div>
               <p className="font-medium">{user?.full_name || user?.username}</p>
-            <span className="text-sm text-muted-foreground">
-              {new Date(created_at).toLocaleString("id-ID")}
-            </span>
+              <span className="text-sm text-muted-foreground">
+                {new Date(created_at).toLocaleString("id-ID")}
+              </span>
             </div>
-              <Badge variant={getStatusVariant(status)}>
-                {translateStatus(status)}
-              </Badge>
+            <Badge variant={getStatusVariant(status)}>
+              {translateStatus(status)}
+            </Badge>
           </div>
         </div>
       </CardHeader>
